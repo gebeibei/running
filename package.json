@@ -48,7 +48,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://gitee.com/gebeibei/running"
+    "url": "https://github.com/gebeibei/running"
   },
   "devDependencies": {
     "@types/geojson": "^7946.0.14",
