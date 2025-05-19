@@ -121,6 +121,7 @@ def parse_raw_data_to_nametuple(
     if run_data["geoPoints"]:
         run_points_data = decode_runmap_data(run_data["geoPoints"], True)
         run_points_data_gpx = run_points_data
+
         if TRANS_GCJ02_TO_WGS84:
             run_points_data = [
                 list(eviltransform.gcj2wgs(p["latitude"], p["longitude"]))
@@ -131,9 +132,13 @@ def parse_raw_data_to_nametuple(
                 p["longitude"] = run_points_data[i][1]
 
         for p in run_points_data_gpx:
+            # 如果p上不存在timestamp，则跳过该p
+            if "timestamp" not in p:
+                continue
             p_hr = find_nearest_hr(decoded_hr_data, int(p["timestamp"]), start_time)
             if p_hr:
                 p["hr"] = p_hr
+
         if with_download_gpx:
             if str(keep_id) not in old_gpx_ids and run_data["dataType"].startswith(
                 "outdoor"
@@ -144,6 +149,7 @@ def parse_raw_data_to_nametuple(
                 download_keep_gpx(gpx_data, str(keep_id))
     else:
         print(f"ID {keep_id} no gps data")
+
     polyline_str = polyline.encode(run_points_data) if run_points_data else ""
     start_latlng = start_point(*run_points_data[0]) if run_points_data else None
     start_date = datetime.utcfromtimestamp(start_time / 1000)
@@ -196,9 +202,13 @@ def get_all_keep_tracks(
             print(f"parsing keep id {run}")
             try:
                 run_data = get_single_run_data(s, headers, run, api)
+
                 track = parse_raw_data_to_nametuple(
                     run_data, old_gpx_ids, s, with_download_gpx
                 )
+
+                if run == '5c2c888ee6668632556c61e9_9223370290060456807_rn':
+                    print(track)
                 tracks.append(track)
             except Exception as e:
                 print(f"Something wrong paring keep id {run}" + str(e))
