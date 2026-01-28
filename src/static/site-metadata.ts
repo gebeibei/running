@@ -9,15 +9,24 @@ interface ISiteMetadataResult {
   }[];
 }
 
+const getBasePath = () => {
+  const baseUrl = import.meta.env.BASE_URL;
+  return baseUrl === '/' ? '' : baseUrl;
+};
+
 const data: ISiteMetadataResult = {
   siteTitle: 'Running Page',
   siteUrl: 'https://github.com/gebeibei',
   logo: 'https://foruda.gitee.com/avatar/1676955436582473300/1195579_gebeibei_1578945812.png!avatar200',
   description: 'Personal site and blog',
   navLinks: [
+    {
+      name: 'Summary',
+      url: `${getBasePath()}/summary`,
+    },
     // {
     //   name: 'Blog',
-    //   url: 'https://github.com/gebeibei',
+    //   url: 'https://github.com/yihong0618/gitblog',
     // },
     // {
     //   name: 'About',

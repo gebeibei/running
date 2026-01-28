@@ -1,5 +1,5 @@
-httpx>=0.15.0,<=0.15.5
-gpxpy==1.4.2
+httpx
+gpxpy==1.6.2
 stravalib==0.10.4
 appdirs>=1.4.0
 svgwrite>=1.1.9
@@ -13,17 +13,22 @@ tzfpy; platform_system != "Windows"
 timezonefinder; platform_system == "Windows"
 pyyaml
 aiofiles
-cloudscraper==1.2.58
+cloudscraper==1.2.71
 tcxreader
 rich
-lxml==4.9.4
+lxml
 eviltransform
 stravaweblib
 tenacity
 numpy
 tzlocal
-fit-tool
+# fit-tool has been removed from PyPI, install from git if needed:
+# git+https://github.com/shaonianche/python_fit_tool.git@main
 garmin-fit-sdk
 haversine==2.8.0
 garth
 pycryptodome
+duckdb
+openai==1.88.0
+# cairosvg
+certifi==2025.1.31
