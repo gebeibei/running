@@ -23,6 +23,9 @@ on:
         type: string
         default: track_data
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true  # Force Node.js 24 for GitHub Actions
+
 # Allow one concurrent deployment
 concurrency:
   group: 'pages'
