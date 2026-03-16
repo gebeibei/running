@@ -30,6 +30,7 @@ env:
   TITLE: gebeibei Running
   MIN_GRID_DISTANCE: 10 # change min distance here
   TITLE_GRID: Over 10km Runs # also here
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true # Force Node.js 24 for GitHub Actions
 
   # IGNORE_BEFORE_SAVING: True # if you want to ignore some data before saving, set this to True
   IGNORE_START_END_RANGE: 500 # Unit meter
