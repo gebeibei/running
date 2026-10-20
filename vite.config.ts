@@ -1,35 +1,67 @@
 import process from 'node:process';
-import { defineConfig } from 'vite';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { build, defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
-import viteTsconfigPaths from 'vite-tsconfig-paths';
-import svgr from 'vite-plugin-svgr';
 import tailwindcss from '@tailwindcss/vite';
+import yaml from '@modyfi/vite-plugin-yaml';
+import svgr from 'vite-plugin-svgr';
 
-// The following are known larger packages or packages that can be loaded asynchronously.
-const individuallyPackages = [
-  'activities',
-  'github.svg',
-  'grid.svg',
-  'mol.svg',
-];
+const rootDir = path.dirname(fileURLToPath(import.meta.url));
 
 const colorClassMapping: { [key: string]: string } = {
-  // Background
   '#1a1a1a': 'svg-color-bg',
   '#222': 'svg-color-bg',
   '#444': 'svg-color-inactive-cell',
   '#4dd2ff': 'svg-color-active-cell',
-  // Primary Text
   '#fff': 'svg-color-text',
   '#e1ed5e': 'svg-color-text',
 };
+
+/**
+ * MapLibre GL 用 `new URL('maplibre-gl-worker.mjs', import.meta.url)` 推导 worker
+ * 地址，打包后 worker 文件不会被一起产出，地图会报 "Worker failed to load"。
+ * 应用 bundle 是多 chunk 的，worker 只能以单文件形式加载，所以在页面构建
+ * 结束后再单独打包一份自包含的 worker，落在它推导出的路径上。
+ */
+function mapLibreWorker(): Plugin {
+  const workerFile = path.resolve(
+    rootDir,
+    'node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs'
+  );
+  return {
+    name: 'maplibre-worker',
+    apply: 'build',
+    async closeBundle() {
+      await build({
+        configFile: false,
+        logLevel: 'warn',
+        build: {
+          write: true,
+          minify: true,
+          emptyOutDir: false,
+          outDir: path.resolve(rootDir, 'dist/assets'),
+          lib: {
+            entry: workerFile,
+            formats: ['es'],
+            fileName: () => 'maplibre-gl-worker.mjs',
+          },
+          rollupOptions: {
+            output: { inlineDynamicImports: true },
+          },
+        },
+      });
+    },
+  };
+}
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    viteTsconfigPaths(),
+    mapLibreWorker(),
+    yaml(),
     svgr({
       include: ['**/*.svg'],
       svgrOptions: {
@@ -53,7 +85,13 @@ export default defineConfig({
               fn: () => {
                 return {
                   element: {
-                    enter: (node) => {
+                    enter: (node: {
+                      attributes: {
+                        fill?: string;
+                        stroke?: string;
+                        class?: string;
+                      };
+                    }) => {
                       const fillColor = node.attributes.fill;
                       if (fillColor) {
                         const lowerCaseFill = fillColor.toLowerCase();
@@ -66,7 +104,6 @@ export default defineConfig({
                       if (strokeColor) {
                         const lowerCaseStroke = strokeColor.toLowerCase();
                         if (colorClassMapping[lowerCaseStroke]) {
-                          // If class already exists, append, otherwise set.
                           const existingClass = node.attributes.class || '';
                           const newClass = colorClassMapping[lowerCaseStroke];
                           if (!existingClass.includes(newClass)) {
@@ -85,31 +122,22 @@ export default defineConfig({
       },
     }),
   ],
-  base: process.env.PATH_PREFIX || '/',
+  base: process.env.PATH_PREFIX ? `${process.env.PATH_PREFIX}/` : '/',
   define: {
     'import.meta.env.VERCEL': JSON.stringify(process.env.VERCEL),
   },
+  resolve: {
+    alias: {
+      '@': path.resolve(rootDir, './src'),
+      '@config': path.resolve(rootDir, 'config.yml'),
+      '@core': path.resolve(rootDir, './src/core'),
+      '@themes': path.resolve(rootDir, './src/themes'),
+      '@assets': path.resolve(rootDir, './assets'),
+    },
+  },
   build: {
     manifest: true,
-    outDir: './dist', // for user easy to use, vercel use default dir -> dist
-    rollupOptions: {
-      output: {
-        manualChunks: (id: string) => {
-          if (id.includes('node_modules')) {
-            return 'vendors';
-            // If there will be more and more external packages referenced in the future,
-            // the following approach can be considered.
-            // const name = id.split('node_modules/')[1].split('/');
-            // return name[0] == '.pnpm' ? name[1] : name[0];
-          } else {
-            for (const item of individuallyPackages) {
-              if (id.includes(item)) {
-                return item;
-              }
-            }
-          }
-        },
-      },
-    },
+    modulePreload: false,
+    outDir: './dist',
   },
 });

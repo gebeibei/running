@@ -15,6 +15,7 @@ dependencies = [
   "geopy",
   "polyline",
   "sqlalchemy",
+  "textual",
   "tzfpy; platform_system != \"Windows\"",
   "timezonefinder; platform_system == \"Windows\"",
   "pyyaml",
@@ -28,6 +29,7 @@ dependencies = [
   "tenacity",
   "numpy",
   "tzlocal",
+  "fit-tool",
   "garmin-fit-sdk",
   "haversine==2.8.0",
   "garth",
@@ -42,6 +44,9 @@ requires-python = ">=3.12"
 readme = "README.md"
 license = { text = "MIT" }
 
+[project.scripts]
+run_page = "run_page.tui.app:main"
+
 [build-system]
 requires = ["pdm-backend"]
 build-backend = "pdm.backend"
@@ -49,3 +54,9 @@ build-backend = "pdm.backend"
 
 [tool.pdm]
 distribution = true
+packages = ["run_page"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+]

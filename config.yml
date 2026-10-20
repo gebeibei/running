@@ -1,0 +1,36 @@
+# Running Page 3.0 站点配置（参考上游 config.example.yaml 与 docs/theme-system.md）
+# 该文件由 Vite 在构建时通过 @config 别名内联，修改后需重新构建（pnpm build）。
+
+# 界面语言：zh | en
+locale: zh
+
+# 默认配色：light | dark | system（跟随系统）
+theme: system
+
+# 主题预设：dashboard（3.0 新版单页仪表盘）| classic（2.x 经典多页布局）
+# 从旧版本升级想保持原界面时改为 classic
+theme_preset: dashboard
+
+# 头像地址：空字符串表示使用内置占位图标
+# 支持 public/ 下的相对路径（如 /avatar.jpg）或任意图片 URL
+avatar: ''
+
+# 可选：Mapbox Token（留空则使用 MapCN，无需配置）
+mapbox_token: ''
+
+# 底图服务：mapcn（默认，CARTO Basemaps，免费免 token）| mapbox（需上面的 mapbox_token）
+map_provider: mapcn
+
+# 目标值（单位：distance=公里，time=分钟）
+# key 与运动类型筛选对应：all / run / ride / hike / swim / gym
+goals:
+  all:
+    yearly: 2026
+    monthly: 150
+    weekly: 35
+    unit: distance
+  run:
+    yearly: 1000
+    monthly: 80
+    weekly: 20
+    unit: distance

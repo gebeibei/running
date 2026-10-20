@@ -8,7 +8,6 @@
 import locale
 import math
 from datetime import datetime
-from typing import List, Optional, Tuple
 
 import colour
 import pytz
@@ -23,6 +22,17 @@ except ImportError:
     from timezonefinder import TimezoneFinder
 
     tf = TimezoneFinder()
+
+
+def _get_tz(lng: float, lat: float) -> str:
+    """优先用 tzfpy，失败时回退到 timezonefinder（Windows 上 tzfpy 的 get_tz 可能不存在）。"""
+    if tf is None:
+        try:
+            return get_tz(lng=lng, lat=lat)
+        except Exception as e:  # noqa: BLE001
+            print(f"tzfpy error: {e} fallback to timezonefinder")
+            globals()["tf"] = TimezoneFinder()
+    return tf.timezone_at(lng=lng, lat=lat)
 
 
 from .xy import XY
@@ -42,8 +52,8 @@ def lat2y(lat_deg: float) -> float:
 
 
 def project(
-    bbox: s2.LatLngRect, size: XY, offset: XY, latlnglines: List[List[s2.LatLng]]
-) -> List[List[Tuple[float, float]]]:
+    bbox: s2.LatLngRect, size: XY, offset: XY, latlnglines: list[list[s2.LatLng]]
+) -> list[list[tuple[float, float]]]:
     min_x = lng2x(bbox.lng_lo().degrees)
     d_x = lng2x(bbox.lng_hi().degrees) - min_x
     while d_x >= 2:
@@ -79,7 +89,7 @@ def project(
 
 def compute_grid(
     count: int, dimensions: XY
-) -> Tuple[Optional[float], Optional[Tuple[int, int]]]:
+) -> tuple[float | None, tuple[int, int] | None]:
     # this is somehow suboptimal O(count^2). I guess it's possible in O(count)
     min_waste = -1.0
     best_size = None
@@ -128,13 +138,7 @@ def parse_datetime_to_local(start_time, end_time, point):
         if offset:
             return start_time + offset, end_time + offset
         lat, lng = point
-        try:
-            timezone = get_tz(lng=lng, lat=lat)
-        except Exception as e:
-            # just a little trick when tzfpy support windows will delete this
-            print(f"tzfpy error: {e} fallback to timezonefinder")
-            lat, lng = point
-            timezone = tf.timezone_at(lng=lng, lat=lat)
+        timezone = _get_tz(lng, lat)
     tc_offset = datetime.now(pytz.timezone(timezone)).utcoffset()
     return start_time + tc_offset, end_time + tc_offset
 
