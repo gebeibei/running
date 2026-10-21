@@ -31,3 +31,6 @@ route.svg
 .sync-backup/
 .dsh-ops-update-*.lock
 
+
+# WorkBuddy 本地工作数据
+.workbuddy/

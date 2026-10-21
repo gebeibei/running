@@ -111,6 +111,13 @@ jobs:
             ${{ env.DATA_CACHE_PREFIX }}-${{ github.sha }}-
             ${{ env.DATA_CACHE_PREFIX }}-
 
+      # assets 目录的整体缓存里含有源码 assets/index.tsx，解压后会覆盖仓库里
+      # 的最新版本，导致后续 build 出现 MISSING_EXPORT（githubYearStats 等）。
+      - name: Restore tracked sources overwritten by data cache
+        if: env.SAVE_DATA_IN_GITHUB_CACHE == 'true'
+        run: |
+          git checkout -- assets/index.tsx
+
       - name: Run sync Nike script
         if: env.RUN_TYPE == 'nike'
         run: |

@@ -47,7 +47,8 @@ function mapLibreWorker(): Plugin {
             fileName: () => 'maplibre-gl-worker.mjs',
           },
           rollupOptions: {
-            output: { inlineDynamicImports: true },
+            // rolldown 已废弃 inlineDynamicImports，单文件产物用 codeSplitting: false
+            output: { codeSplitting: false },
           },
         },
       });
