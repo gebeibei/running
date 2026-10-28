@@ -1,4 +1,5 @@
 import datetime
+import json
 import random
 import string
 
@@ -25,6 +26,25 @@ def randomword():
     return "".join(random.choice(letters) for i in range(4))
 
 
+def _parse_best_efforts(value):
+    """Decode the ``best_efforts`` column (JSON string) into a dict."""
+    if not value:
+        return None
+    if isinstance(value, dict):
+        return value
+    try:
+        return json.loads(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def dump_best_efforts(efforts):
+    """Encode a best-efforts dict for storage."""
+    if not efforts:
+        return None
+    return json.dumps(efforts, sort_keys=True)
+
+
 options.default_user_agent = "running_page"
 # reverse the location (lat, lon) -> location detail
 g = Nominatim(user_agent=randomword())
@@ -44,6 +64,7 @@ ACTIVITY_KEYS = [
     "average_heartrate",
     "average_speed",
     "elevation_gain",
+    "best_efforts",
 ]
 
 
@@ -64,13 +85,17 @@ class Activity(Base):
     average_heartrate = Column(Float)
     average_speed = Column(Float)
     elevation_gain = Column(Float)
+    # JSON string: {"5k": 1156, "10k": 2442, ...} (seconds per target distance)
+    best_efforts = Column(String)
     streak = None
 
     def to_dict(self):
         out = {}
         for key in ACTIVITY_KEYS:
             attr = getattr(self, key)
-            if isinstance(attr, (datetime.timedelta, datetime.datetime)):
+            if key == "best_efforts":
+                out[key] = _parse_best_efforts(attr)
+            elif isinstance(attr, (datetime.timedelta, datetime.datetime)):
                 out[key] = str(attr)
             else:
                 out[key] = attr

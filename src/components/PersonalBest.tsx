@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import type { Activity } from '../types';
 import { useLocale } from '../hooks/useLocale';
 import { parseMovingTime } from '../hooks/useActivities';
@@ -17,59 +17,80 @@ function formatTime(seconds: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-const DISTANCES = [
-  { key: '5K', min: 4.8, max: 5.5 },
-  { key: '10K', min: 9.5, max: 11 },
-  { key: 'Half Marathon', min: 20, max: 22.5 },
-  { key: 'Marathon', min: 41, max: 44 },
+type EffortKey = '5k' | '10k' | 'half' | 'marathon';
+
+interface DistanceTarget {
+  key: EffortKey;
+  meters: number;
+  zh: string;
+  en: string;
+}
+
+const DISTANCES: DistanceTarget[] = [
+  { key: '5k', meters: 5000, zh: '5公里', en: '5K' },
+  { key: '10k', meters: 10000, zh: '10公里', en: '10K' },
+  { key: 'half', meters: 21097.5, zh: '半程马拉松', en: 'Half Marathon' },
+  { key: 'marathon', meters: 42195, zh: '全程马拉松', en: 'Marathon' },
 ];
+
+// Segments faster than 2:45/km are GPS noise, slower than 10:00/km is walking.
+const MIN_PACE = 165;
+const MAX_PACE = 600;
+
+interface BestEntry {
+  activity: Activity;
+  seconds: number;
+  fromSplit: boolean;
+}
+
+/**
+ * Fastest effort for one target distance.
+ *
+ * The Python pipeline stores `best_efforts` per activity (fastest segment of
+ * that run over the target distance, distance-calibrated against the recorded
+ * distance), so a 5K tempo block inside a 12km run can win. Activities without
+ * a usable track fall back to a whole-run equivalent time, which is only fair
+ * when the run itself is at least as long as the target.
+ */
+function bestFor(runs: Activity[], target: DistanceTarget): BestEntry | null {
+  let best: BestEntry | null = null;
+  for (const activity of runs) {
+    const split = activity.best_efforts?.[target.key];
+    let entry: BestEntry;
+    if (typeof split === 'number' && split > 0) {
+      entry = { activity, seconds: split, fromSplit: true };
+    } else {
+      const total = parseMovingTime(activity.moving_time);
+      if (total <= 0 || activity.distance < target.meters) continue;
+      entry = {
+        activity,
+        seconds: (total * target.meters) / activity.distance,
+        fromSplit: false,
+      };
+    }
+    const pacePerKm = (entry.seconds / target.meters) * 1000;
+    if (pacePerKm < MIN_PACE || pacePerKm > MAX_PACE) continue;
+    if (!best || entry.seconds < best.seconds) best = entry;
+  }
+  return best;
+}
 
 export const PersonalBest = memo(function PersonalBest({
   activities,
   onSelectActivity,
 }: PersonalBestProps) {
   const { locale } = useLocale();
+  const isZh = locale === 'zh';
 
-  // Only outdoor runs with valid GPS tracks (polyline must be substantial, not just a point)
-  const runs = activities.filter(
-    (a) =>
-      a.type === 'Run' && a.summary_polyline && a.summary_polyline.length > 20
-  );
+  const bests = useMemo(() => {
+    const runs = activities.filter((a) => a.type === 'Run');
+    return DISTANCES.map((target) => ({
+      target,
+      entry: bestFor(runs, target),
+    }));
+  }, [activities]);
 
-  const labels: Record<string, string> =
-    locale === 'zh'
-      ? {
-          '5K': '5公里',
-          '10K': '10公里',
-          'Half Marathon': '半程马拉松',
-          Marathon: '全程马拉松',
-        }
-      : {
-          '5K': '5K',
-          '10K': '10K',
-          'Half Marathon': 'Half Marathon',
-          Marathon: 'Marathon',
-        };
-
-  const bests = DISTANCES.map(({ key, min, max }) => {
-    const matching = runs.filter((a) => {
-      const km = a.distance / 1000;
-      if (km < min || km > max) return false;
-      // Filter out GPS drift: pace must be reasonable (3:00/km ~ 8:00/km)
-      const time = parseMovingTime(a.moving_time);
-      const pacePerKm = time / km; // seconds per km
-      return pacePerKm >= 180 && pacePerKm <= 480; // 3min/km to 8min/km
-    });
-    if (matching.length === 0) return { key, activity: null, time: 0 };
-    const best = matching.reduce((b, a) => {
-      return parseMovingTime(a.moving_time) < parseMovingTime(b.moving_time)
-        ? a
-        : b;
-    });
-    return { key, activity: best, time: parseMovingTime(best.moving_time) };
-  });
-
-  const hasBests = bests.some((b) => b.activity !== null);
+  const hasBests = bests.some((b) => b.entry !== null);
   if (!hasBests) return null;
 
   return (
@@ -88,32 +109,47 @@ export const PersonalBest = memo(function PersonalBest({
             d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
           />
         </svg>
-        {locale === 'zh' ? '个人最佳' : 'Personal Best'}
+        {isZh ? '个人最佳' : 'Personal Best'}
       </h3>
 
       <div className="divide-y divide-[var(--color-border)]">
-        {bests.map(({ key, activity, time }) => (
-          <button
-            type="button"
-            disabled={!activity || !onSelectActivity}
-            key={key}
-            className={`flex w-full items-center justify-between gap-3 py-2 text-left ${
-              activity
-                ? '-mx-2 cursor-pointer rounded-lg px-2 transition-colors hover:bg-[var(--color-bg)]'
-                : ''
-            }`}
-            onClick={() => activity && onSelectActivity?.(activity)}
-          >
-            <span className="text-xs text-[var(--color-text)]">
-              {labels[key]}
-            </span>
-            <span
-              className={`font-mono text-xs font-bold ${activity ? 'text-[var(--color-accent)]' : 'text-[var(--color-muted)]'}`}
+        {bests.map(({ target, entry }) => {
+          const date = entry?.activity.start_date_local.slice(0, 10) ?? '';
+          const km = entry ? (entry.activity.distance / 1000).toFixed(2) : '';
+          const source = entry?.fromSplit
+            ? `${isZh ? '分段' : 'split'} · ${km}km`
+            : `${isZh ? '整次' : 'full run'} · ${km}km`;
+          return (
+            <button
+              type="button"
+              disabled={!entry || !onSelectActivity}
+              key={target.key}
+              title={
+                entry ? `${entry.activity.name} · ${date} · ${source}` : ''
+              }
+              className={`flex w-full items-center justify-between gap-3 py-2 text-left ${
+                entry
+                  ? '-mx-2 cursor-pointer rounded-lg px-2 transition-colors hover:bg-[var(--color-bg)]'
+                  : ''
+              }`}
+              onClick={() => entry && onSelectActivity?.(entry.activity)}
             >
-              {activity ? formatTime(time) : '--'}
-            </span>
-          </button>
-        ))}
+              <span className="flex min-w-0 flex-col">
+                <span className="text-xs text-[var(--color-text)]">
+                  {isZh ? target.zh : target.en}
+                </span>
+                <span className="truncate text-[10px] text-[var(--color-muted)]">
+                  {entry ? `${date} · ${source}` : '--'}
+                </span>
+              </span>
+              <span
+                className={`font-mono text-xs font-bold ${entry ? 'text-[var(--color-accent)]' : 'text-[var(--color-muted)]'}`}
+              >
+                {entry ? formatTime(entry.seconds) : '--'}
+              </span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

@@ -4,17 +4,33 @@ import sys
 
 import arrow
 import stravalib
+from best_efforts import best_efforts_for_activity
 from gpxtrackposter import track_loader
 from polyline_processor import filter_out
 from sqlalchemy import func
 from synced_data_file_logger import save_synced_data_file_list
 
-from .db import Activity, init_db, update_or_create_activity
+from .db import Activity, dump_best_efforts, init_db, update_or_create_activity
 
 IGNORE_BEFORE_SAVING = os.getenv(
     "IGNORE_BEFORE_SAVING",
     False,  # noqa: PLW1508
 )
+
+
+def _default_gpx_folder():
+    """Folder holding one ``<run_id>.gpx`` per activity."""
+    env_value = os.getenv("GPX_FOLDER")
+    if env_value:
+        return env_value
+    try:
+        from config import GPX_FOLDER
+
+        return GPX_FOLDER
+    except Exception:  # noqa: BLE001
+        # <repo>/run_page/generator/__init__.py -> <repo>/GPX_OUT
+        root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        return os.path.join(root, "GPX_OUT")
 
 
 class Generator:
@@ -138,6 +154,8 @@ class Generator:
 
         streak = 0
         last_date = None
+        gpx_folder = _default_gpx_folder()
+        filled_efforts = 0
         for activity in activities:
             # Determine running streak.
             date = datetime.datetime.strptime(  # noqa: DTZ007
@@ -154,6 +172,16 @@ class Generator:
                 streak = 1
             activity.streak = streak  # type: ignore
             last_date = date
+
+            # Best efforts need the point-by-point track, so they are derived
+            # here from GPX_OUT and cached on the row. Rows without a usable
+            # track keep None and the front end falls back to whole-run pace.
+            if activity.type == "Run" and not activity.best_efforts:
+                efforts = best_efforts_for_activity(activity, gpx_folder)
+                if efforts:
+                    activity.best_efforts = dump_best_efforts(efforts)
+                    filled_efforts += 1
+
             exported_activity = activity.to_dict()
             if not IGNORE_BEFORE_SAVING:
                 exported_activity["summary_polyline"] = filter_out(
@@ -161,6 +189,8 @@ class Generator:
                 )
             activity_list.append(exported_activity)
 
+        if filled_efforts:
+            print(f"computed best efforts for {filled_efforts} activities")
         self.session.commit()
         return activity_list
 
