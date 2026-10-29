@@ -80,6 +80,19 @@ jobs:
         run: |
           git checkout -- assets/index.tsx
 
+      # 数据缓存可能来自旧版本：那时的 activities.json 没有 best_efforts 字段，
+      # 直接用它 build 会让"个人最佳成绩"退回旧的整次活动算法。
+      # 这里检测到缺字段就回退到仓库中已提交的版本。
+      - name: Fall back to committed data when cache predates best efforts
+        if: inputs.save_data_in_github_cache
+        run: |
+          if ! grep -q '"best_efforts"' src/static/activities.json; then
+            echo "cached activities.json has no best_efforts -> use committed copy"
+            git checkout -- src/static/activities.json
+          else
+            echo "cached activities.json already has best_efforts"
+          fi
+
       - name: Setup Node.js environment
         uses: actions/setup-node@v4
         with:

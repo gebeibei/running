@@ -22,6 +22,11 @@ on:
       - run_page/keep_to_strava_sync.py
       - run_page/oppo_sync.py
       - run_page/intervals_icu_sync.py
+      # best effort / PB 计算逻辑变化后也要重算数据并重新发布页面
+      - run_page/best_efforts.py
+      - run_page/regen_activities.py
+      - run_page/generator/**
+      - run_page/utils.py
       - requirements.txt
 
 env:
