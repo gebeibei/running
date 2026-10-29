@@ -25,9 +25,7 @@ def _lat_step(mod, meters, lat0=30.0, lon0=120.0):
 
 def _points(mod, count, meters=10.0, step_seconds=3.0):
     step = _lat_step(mod, meters)
-    return [
-        (i * step_seconds, 30.0 + i * step, 120.0) for i in range(count)
-    ]
+    return [(i * step_seconds, 30.0 + i * step, 120.0) for i in range(count)]
 
 
 def _write_gpx(path, points):
@@ -79,7 +77,9 @@ def test_rejects_non_run_and_broken_track(best_efforts, tmp_path):
     assert best_efforts.compute_best_efforts(gpx, 10000.0, 3000, "Ride") is None
     # Recorded duration far off the track timestamps -> untrustworthy axis.
     assert best_efforts.compute_best_efforts(gpx, 10000.0, 4000) is None
-    assert best_efforts.compute_best_efforts(tmp_path / "nope.gpx", 10000.0, 3000) is None
+    assert (
+        best_efforts.compute_best_efforts(tmp_path / "nope.gpx", 10000.0, 3000) is None
+    )
 
 
 def test_rescales_to_recorded_distance_and_duration(best_efforts, tmp_path):

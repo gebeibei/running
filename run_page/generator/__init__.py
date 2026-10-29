@@ -29,7 +29,9 @@ def _default_gpx_folder():
         return GPX_FOLDER
     except Exception:  # noqa: BLE001
         # <repo>/run_page/generator/__init__.py -> <repo>/GPX_OUT
-        root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        root = os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
         return os.path.join(root, "GPX_OUT")
 
 
